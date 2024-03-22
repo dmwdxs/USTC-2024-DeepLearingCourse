@@ -4,6 +4,7 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+import torch.nn.functional as F
 
 
 # 生成数据
@@ -19,7 +20,7 @@ def split_dataset(X, y):
     X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
     return X_train, X_val, X_test, y_train, y_val, y_test
 
-
+'''
 # 定义模型
 class FeedforwardNN(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
@@ -34,18 +35,45 @@ class FeedforwardNN(nn.Module):
         out = self.relu(out)
         out = self.fc2(out)
         return out
+'''    
+
+class FeedforwardNN(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+        super(FeedforwardNN, self).__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.hidden_layers = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim) for _ in range(num_layers)])
+        self.fc2 = nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, x):
+        out = F.silu(self.fc1(x))  # 使用 SiLU 激活函数
+        for layer in self.hidden_layers:
+            out = F.silu(layer(out))  # 使用 SiLU 激活函数
+        out = self.fc2(out)
+        return out
 
 
 # 定义训练函数
-def train_model(model, criterion, optimizer, X_train, y_train, num_epochs=100):
-    for epoch in range(num_epochs):
+def train_model(model, criterion, optimizer, X_train, y_train):
+    losses = []
+    loss = 1.0
+    epoch = 1
+    # for epoch in range(num_epochs):
+    while loss > 1e-4:
         optimizer.zero_grad()
         outputs = model(X_train)
         loss = criterion(outputs, y_train)
+        losses.append(loss)
         loss.backward()
         optimizer.step()
-        # if (epoch+1) % 10 == 0:
-            # print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+        epoch = epoch + 1
+        if epoch % 2000 == 0:
+            print(f'Epoch [{epoch}], Loss: {loss.item():.4f}')
+        if loss <= 1e-4:
+            print(f"Final Epoch:{epoch}, with loss:{loss}")
+        if epoch >=20000:
+            break
+    
+    return losses
 
 
 # 定义测试函数
@@ -62,8 +90,8 @@ def visualize_results(model, X_val, y_val, n):
         y_pred = model(X_val)
 
     plt.figure(figsize=(8, 6))
-    plt.scatter(X_val.cpu().numpy(), y_val.cpu().numpy(), label='Original Data')
-    plt.scatter(X_val.cpu().numpy(), y_pred.cpu().numpy(), color='red', label='Predicted Data')
+    plt.scatter(X_val.cpu().numpy(), y_val.cpu().numpy(), label='Original Data', s=8)
+    plt.scatter(X_val.cpu().numpy(), y_pred.cpu().numpy(), color='red', label='Predicted Data', s=8)
     plt.xlabel('x')
     plt.ylabel('y')
     plt.title(f'Validation Set: Original vs. Predicted with N={n}')
@@ -72,7 +100,7 @@ def visualize_results(model, X_val, y_val, n):
 
 
 # 数据量
-N = [200, 2000]
+N = [200]
 
 
 # 模型参数
@@ -81,19 +109,10 @@ hidden_dim = 64
 output_dim = 1
 num_layers = 5
 learning_rate = 0.01
-num_epochs = 15000
-
-# 调参范围
-learning_rates = [0.01, 0.05, 0.09]
-hidden_dims = [32, 64, 128]
-
-# 测试性能的超参数
-best_lr = 0.01
-best_hidden_dim = 64
 
 # 实验
 for n in N:
-    print(f"Experiment with N={n}:, num_epochs={num_epochs}")
+    print(f"Experiment with N={n}")
 
     # 生成数据
     X, y = generate_data(n)
@@ -106,40 +125,23 @@ for n in N:
     X_train, X_val, X_test = X_train.to(device), X_val.to(device), X_test.to(device)
     y_train, y_val, y_test = y_train.to(device), y_val.to(device), y_test.to(device)
 
-    # 构建模型
-    model = FeedforwardNN(input_dim, hidden_dim, output_dim, num_layers).to(device)
-
-    # 定义损失函数和优化器
+    # 定义损失函数
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    # 训练模型
-    train_model(model, criterion, optimizer, X_train, y_train, num_epochs)
-
-    # 测试模型性能
-    mse = test_model(model, X_test, y_test)
-    # print(f"Test MSE: {mse:.4f}")
-    best_mse = mse
+    best_mse = 1.0
 
     # 调参分析
-    for lr in learning_rates:
-        for h_dim in hidden_dims:
-            model = FeedforwardNN(input_dim, h_dim, output_dim, num_layers).to(device)
-            optimizer = optim.Adam(model.parameters(), lr=lr)
-            train_model(model, criterion, optimizer, X_train, y_train, num_epochs)
-            mse = test_model(model, X_val, y_val)
-            print(f'Validation MSE with lr={lr}, hidden_dim={h_dim}: {mse:.4f}')
-            if mse < best_mse:
-                best_mse = mse
-                best_lr = lr
-                best_hidden_dim = h_dim
-
-    print(f"Best hyperparameters: lr={best_lr}, hidden_dim={best_hidden_dim}")
+    model = FeedforwardNN(input_dim, hidden_dim, output_dim, num_layers).to(device)
+    # 定义优化器
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    losses = train_model(model, criterion, optimizer, X_train, y_train)
+    mse = test_model(model, X_val, y_val)
+    print(f'Validation MSE with lr={learning_rate}, hidden_dim={hidden_dim}: {mse:.4f}')
 
     # 使用最佳超参数重新训练模型
-    model = FeedforwardNN(input_dim, best_hidden_dim, output_dim, num_layers).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=best_lr)
-    train_model(model, criterion, optimizer, X_train, y_train, num_epochs)
+    model = FeedforwardNN(input_dim, hidden_dim, output_dim, num_layers).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    losses = train_model(model, criterion, optimizer, X_train, y_train)
 
     # 可视化验证集
     visualize_results(model, X_val, y_val, n)
