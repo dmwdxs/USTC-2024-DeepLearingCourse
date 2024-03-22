@@ -46,7 +46,7 @@ class FeedforwardNN(nn.Module):
     def forward(self, x):
         out = F.silu(self.fc1(x))  # 使用 SiLU 激活函数
         for layer in self.hidden_layers:
-            out = F.silu(layer(out))  # 使用 SiLU 激活函数
+            out = F.silu(layer(out))  
         out = self.fc2(out)
         return out
 
@@ -56,7 +56,6 @@ def train_model(model, criterion, optimizer, X_train, y_train):
     losses = []
     loss = 1.0
     epoch = 1
-    # for epoch in range(num_epochs):
     while loss > 1e-4:
         optimizer.zero_grad()
         outputs = model(X_train)
@@ -126,15 +125,16 @@ for n in N:
     # 定义损失函数
     criterion = nn.MSELoss()
 
-    # 调参分析
+    # 模型输入
     model = FeedforwardNN(input_dim, hidden_dim, output_dim, num_layers).to(device)
+
     # 定义优化器
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     losses = train_model(model, criterion, optimizer, X_train, y_train)
     mse = test_model(model, X_val, y_val)
     print(f'Validation MSE with lr={learning_rate}, hidden_dim={hidden_dim}: {mse:.4f}')
 
-    # 使用最佳超参数重新训练模型
+    # 重新训练模型
     model = FeedforwardNN(input_dim, hidden_dim, output_dim, num_layers).to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     losses = train_model(model, criterion, optimizer, X_train, y_train)
