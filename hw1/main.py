@@ -23,11 +23,10 @@ def split_dataset(X, y):
 '''
 # 定义模型
 class FeedforwardNN(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+    def __init__(self, input_dim, hidden_dim, output_dim):
         super(FeedforwardNN, self).__init__()
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.relu = nn.SiLU()
-        self.hidden_layers = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim) for _ in range(num_layers)])
         self.fc2 = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
@@ -100,7 +99,7 @@ def visualize_results(model, X_val, y_val, n):
 
 
 # 数据量
-N = [200]
+N = [200, 2000, 10000]
 
 
 # 模型参数
@@ -113,7 +112,6 @@ learning_rate = 0.01
 # 实验
 for n in N:
     print(f"Experiment with N={n}")
-
     # 生成数据
     X, y = generate_data(n)
 
@@ -127,8 +125,6 @@ for n in N:
 
     # 定义损失函数
     criterion = nn.MSELoss()
-
-    best_mse = 1.0
 
     # 调参分析
     model = FeedforwardNN(input_dim, hidden_dim, output_dim, num_layers).to(device)
