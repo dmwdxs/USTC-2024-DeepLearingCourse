@@ -20,21 +20,6 @@ def split_dataset(X, y):
     X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
     return X_train, X_val, X_test, y_train, y_val, y_test
 
-'''
-# 定义模型
-class FeedforwardNN(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
-        super(FeedforwardNN, self).__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.relu = nn.SiLU()
-        self.fc2 = nn.Linear(hidden_dim, output_dim)
-
-    def forward(self, x):
-        out = self.fc1(x)
-        out = self.relu(out)
-        out = self.fc2(out)
-        return out
-'''    
 
 class FeedforwardNN(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
@@ -60,7 +45,7 @@ def train_model(model, criterion, optimizer, X_train, y_train):
         optimizer.zero_grad()
         outputs = model(X_train)
         loss = criterion(outputs, y_train)
-        losses.append(loss)
+        losses.append(loss.item())
         loss.backward()
         optimizer.step()
         epoch = epoch + 1
@@ -68,7 +53,7 @@ def train_model(model, criterion, optimizer, X_train, y_train):
             print(f'Epoch [{epoch}], Loss: {loss.item():.4f}')
         if loss <= 1e-4:
             print(f"Final Epoch:{epoch}, with loss:{loss}")
-        if epoch >=20000:
+        if epoch >=30000:
             break
     
     return losses
@@ -105,7 +90,7 @@ N = [200, 2000, 10000]
 input_dim = 1
 hidden_dim = 64
 output_dim = 1
-num_layers = 5
+num_layers = 4
 learning_rate = 0.01
 
 # 实验
@@ -145,3 +130,10 @@ for n in N:
     # 在测试集上测试性能
     mse = test_model(model, X_test, y_test)
     print(f"Final Test MSE: {mse:.4f}")
+
+    # 绘制损失曲线
+    plt.plot(losses)
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training Loss Curve')
+    plt.show()
